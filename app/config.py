@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     gemini_api_key: str
     qdrant_url: str = "http://qdrant:6333"
     qdrant_collection: str = "business_news"
-    internal_ai_token: str
+    ai_service_internal_token: str
     google_client_id: str = ""
     google_client_secret: str = ""
     google_calendar_redirect_uri: str = "http://localhost:8000/api/calendar/oauth/callback/"
@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     kafka_consumer_group_id: str = "hackonomics-fastapi-news"
     # gRPC server
     grpc_port: int = 50052
-
+    # Environment: "local" selects lighter ML models for faster startup
+    app_env: str = "local"
 
 settings = Settings()

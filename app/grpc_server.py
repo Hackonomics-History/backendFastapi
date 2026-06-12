@@ -15,7 +15,7 @@ class _InternalTokenInterceptor(grpc.aio.ServerInterceptor):
             return None
 
         metadata = dict(handler_call_details.invocation_metadata)
-        if metadata.get("x-internal-token") == settings.internal_ai_token:
+        if metadata.get("x-internal-token") == settings.ai_service_internal_token:
             return handler
 
         # Auth failed — return a handler that immediately aborts the call,

@@ -41,7 +41,7 @@ def refresh_business_news(
     if not country_code:
         raise NotFoundError("Account or country not found")
 
-    background_tasks.add_task(business_news_service.fetch_and_store_news, country_code, True, db)
+    background_tasks.add_task(business_news_service.fetch_and_store_news, country_code, True)
     return {"status": "queued", "country_code": country_code}
 
 

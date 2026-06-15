@@ -5,7 +5,7 @@ import grpc
 from ai.v1 import ai_pb2 as ai_dot_v1_dot_ai__pb2
 
 
-class NewsAiServiceStub(object):
+class NewsAiServiceStub:
     """── News AI Service ───────────────────────────────────────────────────────────
 
     """
@@ -28,7 +28,7 @@ class NewsAiServiceStub(object):
                 _registered_method=True)
 
 
-class NewsAiServiceServicer(object):
+class NewsAiServiceServicer:
     """── News AI Service ───────────────────────────────────────────────────────────
 
     """
@@ -69,7 +69,7 @@ def add_NewsAiServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class NewsAiService(object):
+class NewsAiService:
     """── News AI Service ───────────────────────────────────────────────────────────
 
     """
@@ -129,7 +129,7 @@ class NewsAiService(object):
             _registered_method=True)
 
 
-class CalendarAiServiceStub(object):
+class CalendarAiServiceStub:
     """── Calendar AI Service ───────────────────────────────────────────────────────
 
     """
@@ -147,7 +147,7 @@ class CalendarAiServiceStub(object):
                 _registered_method=True)
 
 
-class CalendarAiServiceServicer(object):
+class CalendarAiServiceServicer:
     """── Calendar AI Service ───────────────────────────────────────────────────────
 
     """
@@ -175,7 +175,7 @@ def add_CalendarAiServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class CalendarAiService(object):
+class CalendarAiService:
     """── Calendar AI Service ───────────────────────────────────────────────────────
 
     """

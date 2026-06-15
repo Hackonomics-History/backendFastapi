@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     jwks_url: str
     jwt_issuer: str
     jwt_audience: str
-    gemini_api_key: str
+    groq_api_key: str
     qdrant_url: str = "http://qdrant:6333"
     qdrant_collection: str = "business_news"
     ai_service_internal_token: str

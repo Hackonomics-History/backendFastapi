@@ -5,7 +5,7 @@ import grpc
 from auth.v1 import auth_pb2 as auth_dot_v1_dot_auth__pb2
 
 
-class AuthServiceStub(object):
+class AuthServiceStub:
     """─── Service ──────────────────────────────────────────────────────────────────
 
     """
@@ -53,7 +53,7 @@ class AuthServiceStub(object):
                 _registered_method=True)
 
 
-class AuthServiceServicer(object):
+class AuthServiceServicer:
     """─── Service ──────────────────────────────────────────────────────────────────
 
     """
@@ -157,7 +157,7 @@ def add_AuthServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class AuthService(object):
+class AuthService:
     """─── Service ──────────────────────────────────────────────────────────────────
 
     """

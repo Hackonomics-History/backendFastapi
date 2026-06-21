@@ -5,7 +5,6 @@ import logging
 from aiokafka import AIOKafkaConsumer
 
 from app.config import settings
-from app.db import SessionLocal
 from app.news.business_news_service import fetch_and_store_news
 from app.news.kafka_producer import publish_result
 
@@ -45,11 +44,7 @@ async def _handle(msg) -> None:
         force = payload.get("force", False)
         logger.info("Consuming NEWS_REFRESH_REQUESTED for %s (force=%s)", country_code, force)
 
-        db = SessionLocal()
-        try:
-            await asyncio.to_thread(fetch_and_store_news, country_code, force, db)
-        finally:
-            db.close()
+        await asyncio.to_thread(fetch_and_store_news, country_code, force)
 
         await publish_result(country_code, success=True)
     except Exception as exc:

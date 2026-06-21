@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.auth.deps import get_current_user_id
 from app.common.errors import ForbiddenError, NotFoundError, ValidationError
 from app.db import get_db
-from app.user_calendar import gemini_advisor
+from app.user_calendar import groq_advisor
 from app.user_calendar.google_oauth import build_google_calendar_flow
 from app.user_calendar.repository import CalendarRepository
 from app.user_calendar.schemas import (
@@ -234,7 +234,7 @@ def calendar_advice(
     ) or "No events"
 
     try:
-        raw_advice = gemini_advisor.analyze_events_and_suggest(
+        raw_advice = groq_advisor.analyze_events_and_suggest(
             events_text=events_text,
             document_text=body.document_text,
             country_context=country_context,
@@ -242,7 +242,7 @@ def calendar_advice(
         try:
             advice_data = json.loads(raw_advice)
         except (json.JSONDecodeError, TypeError):
-            logger.error("Gemini returned invalid JSON: %s", raw_advice)
+            logger.error("Groq returned invalid JSON: %s", raw_advice)
             return JSONResponse(
                 status_code=424,
                 content={"error": "AI response was malformed. Please try again."},

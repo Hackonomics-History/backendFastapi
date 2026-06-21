@@ -18,7 +18,7 @@ calendar_event_category = Table(
 
 
 class AccountModel(Base):
-    __tablename__ = "accounts_accountmodel"
+    __tablename__ = "account"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     ory_identity_id: Mapped[str] = mapped_column(String(255), unique=True, index=True)

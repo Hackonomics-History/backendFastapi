@@ -1,9 +1,12 @@
+import logging
 from datetime import datetime
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.news.models import BusinessNews, BusinessNewsDoc, NewsTaskState
+
+logger = logging.getLogger(__name__)
 
 
 class NewsRepository:
@@ -19,6 +22,7 @@ class NewsRepository:
         )
 
     def save(self, country_code: str, content: list, now: datetime) -> BusinessNews:
+        logger.info("Saving %s business news rows", len(content))
         latest = self.find_latest(country_code)
         if latest and latest.content == content:
             return latest
@@ -60,6 +64,7 @@ class NewsRepository:
         ).update({"last_run_at": now})
 
     def replace_news_docs(self, country_code: str, docs: list[dict], now: datetime) -> None:
+        logger.info("Replacing business_news_doc rows")
         self.db.query(BusinessNewsDoc).filter(
             BusinessNewsDoc.country_code == country_code
         ).delete()

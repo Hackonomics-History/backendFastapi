@@ -1,0 +1,220 @@
+name: CI — backendFastapi (FastAPI)
+
+on:
+  push:
+    branches: [dev]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Three-stage test pipeline
+#
+# ① unit-test      — installs deps, generates proto stubs, runs tests that
+#                    do NOT require external services (marked "not integration").
+#
+# ② integration-test — runs against real PostgreSQL and Redis containers.
+#                    Tests must be marked with @pytest.mark.integration.
+#                    Runs after unit-test passes.
+#
+# ③ docker-build   — builds the FastAPI Docker image (no push) to verify
+#                    the Dockerfile and build context are valid.
+#                    Runs in parallel with ② (both need only unit-test).
+#
+# Checkout pattern:
+#   • backendFastapi repo  → path: backendFastapi/
+#   • proto repo           → path: proto/
+#   buf.gen.kotlin.yaml generates stubs to ../backendFastapi/app/gen/ ✓
+# ─────────────────────────────────────────────────────────────────────────────
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────────
+  # ① Unit Tests
+  # No external services. Tests that require PostgreSQL or Redis must be
+  # decorated with @pytest.mark.integration so they are excluded here.
+  # ──────────────────────────────────────────────────────────────────────────
+  unit-test:
+    name: "1. Unit Tests"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout backendFastapi
+        uses: actions/checkout@v4
+        with:
+          path: backendFastapi
+
+      - name: Checkout proto
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/proto
+          path: proto
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        working-directory: backendFastapi
+        run: uv pip install --system -e ".[dev]"
+
+      - name: Install buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ github.token }}
+
+      - name: Generate proto stubs
+        working-directory: proto
+        run: buf generate --template buf.gen.kotlin.yaml
+
+      - name: Run unit tests
+        working-directory: backendFastapi
+        run: pytest -v --tb=short -m "not integration"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: backendFastapi/.pytest_cache/
+          retention-days: 7
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # ② Integration Tests
+  # Runs against real PostgreSQL and Redis service containers.
+  # Only tests decorated with @pytest.mark.integration are executed.
+  # ──────────────────────────────────────────────────────────────────────────
+  integration-test:
+    name: "2. Integration Tests"
+    runs-on: ubuntu-latest
+    needs: unit-test
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd "pg_isready -U testuser"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
+      REDIS_URL: redis://localhost:6379/0
+
+    steps:
+      - name: Checkout backendFastapi
+        uses: actions/checkout@v4
+        with:
+          path: backendFastapi
+
+      - name: Checkout proto
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/proto
+          path: proto
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        working-directory: backendFastapi
+        run: uv pip install --system -e ".[dev]"
+
+      - name: Install buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ github.token }}
+
+      - name: Generate proto stubs
+        working-directory: proto
+        run: buf generate --template buf.gen.kotlin.yaml
+
+      - name: Wait for Postgres
+        run: |
+          until pg_isready -h localhost -p 5432 -U testuser; do
+            echo "Waiting for Postgres..."
+            sleep 2
+          done
+
+      - name: Wait for Redis
+        run: |
+          for i in $(seq 1 10); do
+            redis-cli -h localhost -p 6379 ping && break
+            echo "Waiting for Redis… ($i/10)"
+            sleep 2
+          done
+
+      - name: Run integration tests
+        working-directory: backendFastapi
+        run: pytest -v --tb=short -m integration
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # ③ Docker Build Verify
+  # FastAPI build context is backendFastapi/ itself (no proto needed in image;
+  # stubs are either pre-committed to app/gen/ or generated in the unit-test
+  # step and copied into the image at build time).
+  # ──────────────────────────────────────────────────────────────────────────
+  docker-build:
+    name: "3. Docker Build Verify"
+    runs-on: ubuntu-latest
+    needs: unit-test
+
+    steps:
+      - name: Checkout backendFastapi
+        uses: actions/checkout@v4
+        with:
+          path: backendFastapi
+
+      - name: Checkout proto
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/proto
+          path: proto
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ github.token }}
+
+      - name: Generate proto stubs (required by app/gen/)
+        working-directory: proto
+        run: buf generate --template buf.gen.kotlin.yaml
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (verify, no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: backendFastapi
+          file: backendFastapi/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

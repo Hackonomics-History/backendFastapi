@@ -1,3 +1,4 @@
+import os
 import asyncio
 import logging
 from contextlib import asynccontextmanager
@@ -5,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import settings
 from app.news import embedder, reranker
 
 logging.basicConfig(level=logging.INFO)
@@ -13,11 +15,15 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Pre-load heavy ML models so first request is fast
-    logger.info("Pre-loading embedding model...")
+    logger.info("FastAPI PID=%s started", os.getpid())
+    # Pre-load ML models so first request is fast
+    logger.info("Pre-loading embedding model (%s, app_env=%s)...", embedder._model_name(), settings.app_env)
     embedder._get_model()
-    logger.info("Pre-loading reranker model...")
-    reranker._get_model()
+    if settings.app_env == "local":
+        logger.info("Local env: skipping reranker pre-load.")
+    else:
+        logger.info("Pre-loading reranker model...")
+        reranker._get_model()
     logger.info("Models ready.")
 
     # Start gRPC server alongside uvicorn

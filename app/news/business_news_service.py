@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from app.news import gemini_adapter, qdrant_service
+from app.news import groq_adapter, qdrant_service
 from app.news.repository import NewsRepository
 
 logger = logging.getLogger(__name__)
@@ -87,7 +87,21 @@ def get_user_business_news(country_code: str | None, db: Session) -> dict:
     return response
 
 
-def fetch_and_store_news(country_code: str, force: bool, db: Session) -> None:
+def fetch_and_store_news(country_code: str, force: bool) -> None:
+    from app.db import SessionLocal
+
+    db = SessionLocal()
+    try:
+        _fetch_and_store_impl(country_code, force, db)
+    except Exception as exc:
+        logger.exception("fetch_and_store_news failed for %s: %s", country_code, exc)
+    finally:
+        db.close()
+
+
+def _fetch_and_store_impl(country_code: str, force: bool, db: Session) -> None:
+    from app.news.models import BusinessNews
+
     repo = NewsRepository(db)
 
     repo.get_or_create_task_state(country_code)
@@ -114,19 +128,25 @@ def fetch_and_store_news(country_code: str, force: bool, db: Session) -> None:
 
     logger.info("Fetching news → %s (force=%s)", country_code, force)
     try:
-        news_items = gemini_adapter.get_country_news(country_code)
+        news_items = groq_adapter.get_country_news(country_code)
     except Exception as exc:
-        logger.exception("Gemini fetch failed for %s: %s", country_code, exc)
+        logger.exception("Groq fetch failed for %s: %s", country_code, exc)
         return
 
     if not news_items:
         logger.warning("No valid news returned → %s", country_code)
         return
 
+    logger.info("NEWS ITEM COUNT=%s", len(news_items))
+    logger.info("NEWS ITEMS=%s", news_items)
+
     now = _utcnow()
     with db.begin():
         repo.save(country_code, news_items, now)
         repo.replace_news_docs(country_code, news_items, now)
+
+    logger.info("DB write completed")
+    logger.info("business_news count=%s", db.query(BusinessNews).count())
 
     try:
         qdrant_service.upsert_news_docs(country_code, news_items)

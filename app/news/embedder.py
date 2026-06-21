@@ -1,15 +1,18 @@
 from fastembed import TextEmbedding
 
 _model: TextEmbedding | None = None
-EMBED_MODEL = "BAAI/bge-small-en-v1.5"
+
+_MODEL_NAME = "BAAI/bge-small-en-v1.5"
 
 
 def _get_model() -> TextEmbedding:
     global _model
     if _model is None:
-        _model = TextEmbedding(EMBED_MODEL)
+        _model = TextEmbedding(_MODEL_NAME)
     return _model
 
+def _model_name() -> str:
+    return _MODEL_NAME
 
 def embed_text(text: str) -> list[float]:
     model = _get_model()

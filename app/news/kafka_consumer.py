@@ -23,8 +23,11 @@ async def start_consumer() -> None:
     logger.info("Kafka consumer started on topic %s", settings.kafka_news_refresh_request_topic)
     try:
         async for msg in consumer:
-            await _handle(msg)
-            await consumer.commit()
+            try:
+                await _handle(msg)
+                await consumer.commit()
+            except Exception as exc:
+                logger.error("Skipping commit for failed message: %s", exc)
     except asyncio.CancelledError:
         logger.info("Kafka consumer stopping...")
     finally:
@@ -54,3 +57,4 @@ async def _handle(msg) -> None:
             await publish_result(country_code, success=False, error=str(exc))
         except Exception:
             pass
+        raise

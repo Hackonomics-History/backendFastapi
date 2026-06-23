@@ -144,14 +144,10 @@ def _fetch_and_store_impl(country_code: str, force: bool, db: Session) -> None:
     with db.begin():
         repo.save(country_code, news_items, now)
         repo.replace_news_docs(country_code, news_items, now)
+        qdrant_service.upsert_news_docs(country_code, news_items)
 
     logger.info("DB write completed")
     logger.info("business_news count=%s", db.query(BusinessNews).count())
-
-    try:
-        qdrant_service.upsert_news_docs(country_code, news_items)
-    except Exception as exc:
-        logger.warning("Qdrant upsert failed for %s: %s", country_code, exc)
 
     # Invalidate Redis cache so next read picks up fresh data
     try:

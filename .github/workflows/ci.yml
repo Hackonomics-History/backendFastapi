@@ -3,6 +3,8 @@ name: CI — backendFastapi (FastAPI)
 on:
   push:
     branches: [dev]
+  pull_request:
+    branches: [dev]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Three-stage test pipeline

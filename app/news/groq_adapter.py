@@ -1,6 +1,8 @@
 import logging
 import time
+from collections.abc import Iterator
 
+import httpx
 from groq import Groq
 
 from app.common.json_utils import parse_news_json
@@ -12,7 +14,7 @@ MAX_RETRIES = 3
 INITIAL_DELAY = 3
 MODEL = "llama-3.3-70b-versatile"
 
-_client = Groq(api_key=settings.groq_api_key)
+_client = Groq(api_key=settings.groq_api_key, timeout=httpx.Timeout(30.0))
 
 NEWS_PROMPT = """You are a senior financial analyst. Identify the 5 most impactful business news stories from the last 72 hours for {country_name}.
 
@@ -44,6 +46,14 @@ def _country_name(code: str) -> str:
         return code
 
 
+def _build_chat_prompt(question: str, contexts: list[dict]) -> str:
+    context_text = "\n\n".join(
+        f"Title: {c.get('title', '')}\nDescription: {c.get('description', '')}"
+        for c in contexts
+    )
+    return CHAT_PROMPT.format(context_text=context_text, question=question)
+
+
 def get_country_news(country_code: str) -> list[dict]:
     prompt = NEWS_PROMPT.format(country_name=_country_name(country_code))
     delay = INITIAL_DELAY
@@ -69,14 +79,24 @@ def get_country_news(country_code: str) -> list[dict]:
 
 
 def generate_chat_answer(question: str, contexts: list[dict]) -> str:
-    context_text = "\n\n".join(
-        f"Title: {c.get('title', '')}\nDescription: {c.get('description', '')}"
-        for c in contexts
-    )
-    prompt = CHAT_PROMPT.format(context_text=context_text, question=question)
+    prompt = _build_chat_prompt(question, contexts)
     completion = _client.chat.completions.create(
         model=MODEL,
         messages=[{"role": "user", "content": prompt}],
         stream=False,
     )
     return completion.choices[0].message.content
+
+
+def generate_chat_answer_stream(question: str, contexts: list[dict]) -> Iterator[str]:
+    """Yield Groq response tokens one at a time using server-sent streaming."""
+    prompt = _build_chat_prompt(question, contexts)
+    stream = _client.chat.completions.create(
+        model=MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        stream=True,
+    )
+    for chunk in stream:
+        token = chunk.choices[0].delta.content or ""
+        if token:
+            yield token

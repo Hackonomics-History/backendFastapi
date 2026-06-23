@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 
@@ -9,21 +10,17 @@ from app.user_calendar.repository import CalendarRepository
 
 logger = logging.getLogger(__name__)
 
-try:
-    from ai.v1 import ai_pb2, ai_pb2_grpc
-except ImportError:
-    ai_pb2 = None
-    ai_pb2_grpc = None
-    logger.warning("ai_pb2 stubs not found — run `buf generate --template buf.gen.kotlin.yaml` first")
+from ai.v1 import ai_pb2, ai_pb2_grpc
 
 
-class CalendarAiServicer:
+class CalendarAiServicer(ai_pb2_grpc.CalendarAiServiceServicer):
     """Implements ai.v1.CalendarAiService."""
 
-    def GetAdvice(self, request, context):
+    async def GetAdvice(self, request, context):
         db = SessionLocal()
         try:
-            raw = groq_advisor.analyze_events_and_suggest(
+            raw = await asyncio.to_thread(
+                groq_advisor.analyze_events_and_suggest,
                 events_text=request.events_text,
                 document_text=request.document_text,
                 country_context=request.country_context,
@@ -79,14 +76,11 @@ class CalendarAiServicer:
         except Exception as exc:
             logger.exception("GetAdvice failed: %s", exc)
             context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details(str(exc))
+            context.set_details("Internal server error")
             return ai_pb2.CalendarAdviceResponse()
         finally:
             db.close()
 
 
 def add_to_server(server) -> None:
-    if ai_pb2_grpc is None:
-        logger.error("Cannot register CalendarAiServicer — stubs not generated")
-        return
     ai_pb2_grpc.add_CalendarAiServiceServicer_to_server(CalendarAiServicer(), server)

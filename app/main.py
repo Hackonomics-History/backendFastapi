@@ -1,3 +1,8 @@
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent / "gen"))
+
 import os
 import asyncio
 import logging
@@ -34,12 +39,17 @@ async def lifespan(app: FastAPI):
     from app.news.kafka_consumer import start_consumer
     kafka_task = asyncio.create_task(start_consumer())
 
+    # Start Kafka consumer for user calendar activity events
+    from app.user_calendar.kafka_consumer import start_user_activities_consumer
+    calendar_task = asyncio.create_task(start_user_activities_consumer())
+
     yield
 
     # Graceful shutdown
     kafka_task.cancel()
+    calendar_task.cancel()
     grpc_task.cancel()
-    await asyncio.gather(kafka_task, grpc_task, return_exceptions=True)
+    await asyncio.gather(kafka_task, calendar_task, grpc_task, return_exceptions=True)
 
     from app.news.kafka_producer import stop_producer
     await stop_producer()

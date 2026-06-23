@@ -1,3 +1,61 @@
-/env
+# Secrets & Environment
+/env/
+.env
+.env.*
 .env.local
+.env.*.local
+
+# Virtual Environments
 .venv/
+venv/
+ENV/
+env/
+
+# Python Bytecode & Caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Build Artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+wheels/
+sdist/
+develop-eggs/
+downloads/
+
+# Test & Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+
+# Type Checking & Linting Caches
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+
+# IDE & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git workflow scratch files
+.git-workflow/
+
+# Logs
+*.log

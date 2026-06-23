@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends
@@ -5,8 +6,9 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.auth.deps import get_current_user_id
-from app.db import get_db
+from app.db import SessionLocal, get_db
 from app.news import business_news_service, llm_news_service
+from app.news.grpc_servicer import _CHAT_EXECUTOR
 from app.news.schemas import BusinessNewsResponse, ChatRequest, NewsRefreshResponse
 
 logger = logging.getLogger(__name__)
@@ -46,7 +48,7 @@ def refresh_business_news(
 
 
 @router.post("/chat/stream/")
-def chat_stream(
+async def chat_stream(
     body: ChatRequest,
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
@@ -56,8 +58,18 @@ def chat_stream(
     if not country_code:
         raise NotFoundError("Account or country not found")
 
-    result = llm_news_service.ask(body.question, country_code, db)
+    def _ask() -> dict:
+        worker_db = SessionLocal()
+        try:
+            return llm_news_service.ask(body.question, country_code, worker_db)
+        finally:
+            worker_db.close()
 
+    loop = asyncio.get_running_loop()
+    result = await loop.run_in_executor(_CHAT_EXECUTOR, _ask)
+
+    # TODO(tech-debt): pseudo-SSE — full answer buffered before send. Real token streaming
+    # requires a _produce_tokens-style async bridge (separate from this executor pattern).
     def event_stream():
         yield f"data: {result['answer']}\n\n"
         yield "data: done\n\n"
